@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Session</title>
+</head>
+<body>
+    <h2>Start a Session</h2>
+    <form action="{{ url_for('start_session') }}" method="POST">
+        <label for="class">Class:</label>
+        <select name="class" required>
+            {% for class_option in classes %}
+                <option value="{{ class_option }}">{{ class_option }}</option>
+            {% endfor %}
+        </select><br>
+
+        <label for="subject">Subject:</label>
+        <select name="subject" required>
+            {% for subject_option in subjects %}
+                <option value="{{ subject_option }}">{{ subject_option }}</option>
+            {% endfor %}
+        </select><br>
+
+        <label for="start_time">Start Time:</label>
+        <input type="datetime-local" name="start_time" required><br>
+
+        <label for="end_time">End Time:</label>
+        <input type="datetime-local" name="end_time" required><br>
+
+        <label for="room">Room:</label>
+        <select name="room" required>
+            {% for room_option in rooms %}
+                <option value="{{ room_option }}">{{ room_option }}</option>
+            {% endfor %}
+        </select><br>
+
+        <input type="submit" value="Start Session">
+    </form>
+</body>
+</html>
