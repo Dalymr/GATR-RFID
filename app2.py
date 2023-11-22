@@ -2,6 +2,9 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 from datetime import datetime, timedelta
 import mysql.connector
 import jinja2
+from Crypto.Cipher import AES
+from binascii import unhexlify
+from array import array
 
 app = Flask(__name__)
 
@@ -14,21 +17,60 @@ db = mysql.connector.connect(
 )
 cursor = db.cursor()
 
+# professor uid decryption from rfid
+def decrypt_id(encrypted_id, key):
+    cipher = AES.new(key, AES.MODE_ECB)
+    decrypted_id = cipher.decrypt(encrypted_id)
+    return decrypted_id.encode('utf-8')
+
+# get all classes id
 def get_classes():
     # Fetch the list of classes from the 'classes' table
     cursor.execute("SELECT idclasse FROM classes")
     return [row[0] for row in cursor.fetchall()]
 
+
+# get all subjects id
 def get_subjects():
     # Fetch the list of subjects from the 'matieres' table
     cursor.execute("SELECT idmatiere FROM matieres")
     return [row[0] for row in cursor.fetchall()]
 
+
+# get all rooms id
 def get_rooms():
     # Fetch the list of rooms from the 'salles' table
     cursor.execute("SELECT idsalle FROM salles")
     return [row[0] for row in cursor.fetchall()]
 
+
+
+
+#create a session in sql
+def create_new_session(session_info):
+    try:
+
+        # Insert the new session into the 'seancesetablis' table
+        sql = """INSERT INTO seancesetablis 
+                 (idseance,idenseignant, idclasse, idmatiere ,idsalle,presenceenseignat) 
+                 VALUES (%s, %s, %s, %s, %s, %s)"""
+        
+        values = (session_info[0], session_info[3], session_info[2], session_info[1], session_info[6],1)
+        cursor.execute(sql, values)
+
+        # Commit the changes to the database
+        db.commit()
+
+        return session_info[0], session_info[3]
+    except Exception as e:
+        # Rollback in case of an error
+        db.rollback()
+        raise e
+
+
+
+
+#starting session by web
 @app.route('/start_session', methods=['GET', 'POST'])
 def start_session():
     if request.method == 'POST':
@@ -44,7 +86,7 @@ def start_session():
             end_time = datetime.strptime(end_time, '%Y-%m-%dT%H:%M')
 
             # Insert the session details into the database
-            session_id, professor_id = create_new_session(class_id, subject, start_time, end_time, room)
+            session_id = create_new_session(professor_id, class_id, subject, start_time, end_time, room)
 
             # Fetch additional session details based on session_id from the database
             # You may need to adapt this based on your database structure
@@ -63,6 +105,90 @@ def start_session():
 
     return render_template('start_session.html', classes=classes, subjects=subjects, rooms=rooms)
 
+
+
+
+#starting session by rfid scan
+def start_professor_session(uid,salleid):
+    try:
+            
+        current_timestamp = datetime.now()
+        print(current_timestamp)
+
+        # Allow a 15-minute grace period for early or late scans
+        grace_period = timedelta(minutes=10)
+        print(grace_period)
+
+        # Calculate the time range for the query
+        start_time_range = (current_timestamp - grace_period).strftime('%Y-%m-%d %H:%M:%S')
+        end_time_range = (current_timestamp + grace_period).strftime('%Y-%m-%d %H:%M:%S')
+        print(start_time_range)
+
+        # Check if there's an active session for the professor within the grace period
+        cursor.execute(
+            "SELECT * FROM seances WHERE idenseignant = %s AND (dateheuredebut BETWEEN %s AND %s)",
+            (uid, start_time_range, end_time_range)
+        )
+
+        # Fetch the session information
+        session_info = cursor.fetchone()
+        print(session_info)
+        # Check if a session exists
+        if session_info:
+            # Active session found
+                try:
+                    create_new_session(session_info)
+                    print('Session created successfully.')
+                    print('Session started for professor:', session_info['idenseignant'])
+                except Exception as e:
+                    print('Error creating session:', e)
+                return True
+        else:
+            # No active session
+            print('No active session found for professor:', uid)
+            return False
+    except Exception as e:
+        print('Error checking for active professor session:', e)
+        return False
+    
+    
+@app.route('/get_rfid_data', methods=['POST'])
+def get_rfid_data():
+    try:
+        if request.method == 'POST':
+            try:
+                json_data = request.get_json()
+            except Exception as json_error:
+                print(json_error)
+                return jsonify({'error': 'Failed to parse JSON data'})
+
+            try:
+                idsalle = json_data['idsalle']
+            except KeyError:
+                return jsonify({'error': 'Missing required field: idsalle'})
+
+            try:
+                professor_id = json_data['cardID']
+            except KeyError:
+                return jsonify({'error': 'Missing required field: cardID'})
+
+            try:
+                start_professor_session(professor_id, idsalle)
+            except Exception as session_error:
+                print(session_error)
+                return jsonify({'error': 'Failed to start professor session'})
+
+            return '', 200  # Return success
+        else:
+            return jsonify({'message': 'Invalid request method'})
+    except Exception as e:
+        print(e)
+        return jsonify({'errorbruh': str(e)})
+
+
+
+
+#display running session details
 def get_session_details(session_id):
     try:
         # Fetch the necessary details from the 'seances' table based on session_id
@@ -94,46 +220,9 @@ def get_session_details(session_id):
     except Exception as e:
         # Handle exceptions as needed
         return None
+    
+    
 @app.route('/session_started')
-def session_started():
-    session_id = request.args.get('session_id')
-
-    # Fetch additional session details based on session_id from the database
-    session_details = get_session_details(session_id)
-
-    if session_details:
-        # If session details are found, render the template
-        return render_template('session_started.html', session_id=session_id, session_details=session_details)
-    else:
-        # If session is not found, you can handle it appropriately (e.g., redirect to an error page)
-        return render_template('session_not_found.html')
-
-
-def create_new_session(class_id, subject, start_time, end_time, room):
-    try:
-        # Generate a unique session ID (you may use a better method)
-        session_id = f"session_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-        # Fetch the professor ID (you need to implement this logic)
-        professor_id = 'ES0001'
-
-        # Insert the new session into the 'seances' table
-        sql = """INSERT INTO seances 
-                 (idseance, idmatiere, idclasse, idenseignant, dateheuredebut, dateheurefin, idsalle,presenceenseignant) 
-                 VALUES (%s, %s, %s, %s, %s, %s, %s,%s)"""
-        
-        values = (session_id, subject, class_id, professor_id, start_time, end_time, room,1)
-        cursor.execute(sql, values)
-
-        # Commit the changes to the database
-        db.commit()
-
-        return session_id, professor_id
-    except Exception as e:
-        # Rollback in case of an error
-        db.rollback()
-        raise e
-
 def get_session_details(session_id):
     # Fetch additional session details based on session_id from the database
     # You may need to adapt this based on your database structure
@@ -145,4 +234,6 @@ def get_session_details(session_id):
 # Rest of the code remains the same...
 
 if __name__ == '__main__':
+    key = b'whatkeymamamia??'
     app.run(debug=True)
+    
