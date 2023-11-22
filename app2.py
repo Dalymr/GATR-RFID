@@ -30,6 +30,13 @@ def get_classes():
     return [row[0] for row in cursor.fetchall()]
 
 
+# get all enseignants id
+def get_professors():
+    # Fetch the list of professors from the 'enseignants' table
+    cursor.execute("SELECT idenseignant FROM enseignants")
+    return [row[0] for row in cursor.fetchall()]
+
+
 # get all subjects id
 def get_subjects():
     # Fetch the list of subjects from the 'matieres' table
@@ -44,66 +51,6 @@ def get_rooms():
     return [row[0] for row in cursor.fetchall()]
 
 
-
-
-#create a session in sql
-def create_new_session(session_info):
-    try:
-
-        # Insert the new session into the 'seancesetablis' table
-        sql = """INSERT INTO seancesetablis 
-                 (idseance,idenseignant, idclasse, idmatiere ,idsalle,presenceenseignat) 
-                 VALUES (%s, %s, %s, %s, %s, %s)"""
-        
-        values = (session_info[0], session_info[3], session_info[2], session_info[1], session_info[6],1)
-        cursor.execute(sql, values)
-
-        # Commit the changes to the database
-        db.commit()
-
-        return session_info[0], session_info[3]
-    except Exception as e:
-        # Rollback in case of an error
-        db.rollback()
-        raise e
-
-
-
-
-#starting session by web
-@app.route('/start_session', methods=['GET', 'POST'])
-def start_session():
-    if request.method == 'POST':
-        try:
-            class_id = request.form['class']
-            subject = request.form['subject']
-            start_time = request.form['start_time']
-            end_time = request.form['end_time']
-            room = request.form['room']
-
-            # Format the date-time strings into Python datetime objects
-            start_time = datetime.strptime(start_time, '%Y-%m-%dT%H:%M')
-            end_time = datetime.strptime(end_time, '%Y-%m-%dT%H:%M')
-
-            # Insert the session details into the database
-            session_id = create_new_session(professor_id, class_id, subject, start_time, end_time, room)
-
-            # Fetch additional session details based on session_id from the database
-            # You may need to adapt this based on your database structure
-            # For example, you can fetch the start and end times of the session
-            session_details = get_session_details(session_id)
-
-            # Redirect to the session_started route with session data
-            return redirect(url_for('session_started', session_id=session_id, professor_id=professor_id, session_details=session_details))
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)})
-
-    # Fetch the list of classes, subjects, and rooms from the database
-    classes = get_classes()
-    subjects = get_subjects()
-    rooms = get_rooms()
-
-    return render_template('start_session.html', classes=classes, subjects=subjects, rooms=rooms)
 
 
 
@@ -188,50 +135,46 @@ def get_rfid_data():
 
 
 
-#display running session details
-def get_session_details(session_id):
-    try:
-        # Fetch the necessary details from the 'seances' table based on session_id
-        cursor.execute("""
-            SELECT idenseignant, idmatiere, dateheuredebut, dateheurefin 
-            FROM seances 
-            WHERE idseance = %s
-        """, (session_id,))
-        result = cursor.fetchone()
 
-        if result:
-            professor_id = result[0]
-            matiere_id = result[1]
-            start_time = result[2]
-            end_time = result[3]
-
-            # You may fetch additional details based on your needs
-
-            return {
-                'professor_id': professor_id,
-                'matiere_id': matiere_id,
-                'start_time': start_time,
-                'end_time': end_time,
-                # Add more details as needed
-            }
-        else:
-            return None  # Session not found
-
-    except Exception as e:
-        # Handle exceptions as needed
-        return None
     
     
-@app.route('/session_started')
-def get_session_details(session_id):
-    # Fetch additional session details based on session_id from the database
-    # You may need to adapt this based on your database structure
-    # For example, you can fetch the start and end times of the session
-    cursor.execute("SELECT idenseignant,idmatiere, dateheuredebut, dateheurefin FROM seances WHERE idseance = %s", (session_id,))
-    session_details = cursor.fetchone()
-    return {'professor_id': session_details[0], 'subject' : session_details[1],'start_time' :session_details[2], 'end_time': session_details[3]}
+@app.route('/session_started', methods=['POST','GET'])
+def get_session_details():
+    if request.method == 'POST':
+        try:
+            # Fetch the necessary details from the 'seances' table based on session_id
+            cursor.execute("""
+                SELECT idenseignant, idmatiere, dateheuredebut, dateheurefin
+                FROM seances
+                WHERE idseance = %s
+            """, (session_id))
 
-# Rest of the code remains the same...
+            result = cursor.fetchone()
+
+            if result:
+                professor_id = result[0]
+                matiere_id = result[1]
+                start_time = result[2]
+                end_time = result[3]
+
+                # You may fetch additional details based on your needs
+
+                session_details = {
+                    'professor_id': professor_id,
+                    'matiere_id': matiere_id,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    # Add more details as needed
+                }
+
+                return render_template('session_started.html', session_details=session_details)
+
+        except Exception as e:
+            # Handle exceptions as needed
+            print(e)
+            return None
+
+
 
 if __name__ == '__main__':
     key = b'whatkeymamamia??'

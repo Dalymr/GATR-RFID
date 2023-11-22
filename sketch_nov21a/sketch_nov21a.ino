@@ -15,8 +15,8 @@
 #include <MFRC522.h>
 #include "ESP8266_AT.h"
 
-const char* SSID = "your_ssid";
-const char* PASSWORD = "your_password";
+const char* SSID = "lollollol";
+const char* PASSWORD = "00000000";
 const char* serverAddress = "your_server_ip"; // Replace with your server's IP address
 const char* idsalle = "ST001";
 

@@ -1,69 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Session Started</title>
-  </head>
-  <body>
-    <h2>Session Started</h2>
-    <p>Session ID: {{ session_id }}</p>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Session Started</title>
+</head>
+<body>
+  <h2>Session Started</h2>
+  <p>Session ID: {{ session_id }}</p>
 
-    <h3>Session Details</h3>
-    <p>Professor ID: {{ session_details.professor_id }}</p>
-    <p>Matiere ID: {{ session_details.subject }}</p>
-    <p>Start Time: {{ session_details.start_time }}</p>
-    <p>End Time: {{ session_details.end_time }}</p>
+  <h3>Session Details</h3>
+  <p>Professor ID: {{ session_details.professor_id }}</p>
+  <p>Subject ID: {{ session_details.subject }}</p>
+  <p>Start Time: {{ session_details.start_time | date('Y-m-d H:i:s') }}</p>
+  <p>End Time: {{ session_details.end_time | date('Y-m-d H:i:s') }}</p>
 
-    <!-- Countdown Timer -->
-    <div id="countdown"></div>
+  <div id="countdown"></div>
 
-    <script>
-      // JavaScript to update the countdown dynamically
-      function updateCountdown() {
-        var startTime = new Date(
-          "{{ session_details.start_time | tojson | safe }}"
-        ).getTime();
-        var endTime = new Date(
-          "{{ session_details.end_time | tojson | safe }}"
-        ).getTime();
+  <script>
+    // JavaScript to update the countdown dynamically
+    function updateCountdown() {
+      var startTime = new Date(
+        "{{ session_details.start_time | date('Y-m-d H:i:s') }}"
+      );
+      var endTime = new Date(
+        "{{ session_details.end_time | date('Y-m-d H:i:s') }}"
+      );
 
-        var now = new Date().getTime();
-        var timeRemaining = 0;
+      var now = new Date().getTime();
+      var timeRemaining = 0;
 
-        if (now < startTime) {
-          timeRemaining = startTime - now;
-          document.getElementById("countdown").innerHTML =
-            "Session starts in: " + formatCountdown(timeRemaining);
-        } else if (now < endTime) {
-          timeRemaining = endTime - now;
-          document.getElementById("countdown").innerHTML =
-            "Time left in session: " + formatCountdown(timeRemaining);
-        } else {
-          document.getElementById("countdown").innerHTML = "Session ended.";
-          return;
-        }
-
-        setTimeout(updateCountdown, 1000);
+      if (now < startTime) {
+        timeRemaining = startTime - now;
+        document.getElementById("countdown").innerHTML =
+          "Session starts in: " + formatCountdown(timeRemaining);
+      } else if (now < endTime) {
+        timeRemaining = endTime - now;
+        document.getElementById("countdown").innerHTML =
+          "Time left in session: " + formatCountdown(timeRemaining);
+      } else {
+        document.getElementById("countdown").innerHTML = "Session ended.";
+        return;
       }
 
-      // Function to format the countdown time
-      function formatCountdown(timeRemaining) {
-        var hours = Math.floor(
-          (timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-        );
-        var minutes = Math.floor(
-          (timeRemaining % (1000 * 60 * 60)) / (1000 * 60)
-        );
-        var seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+      setTimeout(updateCountdown, 1000);
+    }
 
-        return hours + "h " + minutes + "m " + seconds + "s";
-      }
+    // Function to format the countdown time
+    function formatCountdown(timeRemaining) {
+      var hours = Math.floor(
+        (timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+      );
+      var minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+      var seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
 
-      // Call the updateCountdown function when the page is loaded
-      window.onload = updateCountdown;
-    </script>
+      return hours + "h " + minutes + "m " + seconds + "s";
+    }
 
-    <!-- Your additional content goes here -->
+    // Call the updateCountdown function when the page is loaded
+    window.onload = updateCountdown;
+  </script>
+
   </body>
 </html>
