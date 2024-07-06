@@ -1,3 +1,5 @@
+💳 GATR : Gestion d'absences en temps reel ( Absence Managment in real time )
+
 Implementation of a Real-Time Absence Management system called “GATR” based on RFID technology.
 
 Using an Arduino Uno with a Wifi Module and RFID module.
